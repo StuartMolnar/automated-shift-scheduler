@@ -1,0 +1,1 @@
+An employee shift scheduler which takes in hard constraints like availability, and soft constraints like preferences, and utilizes an optimization algorithm to automatically find an ideal shift schedule for a given week.
