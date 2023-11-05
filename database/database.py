@@ -60,10 +60,10 @@ cursor.execute('''
 CREATE TABLE IF NOT EXISTS EmployeePreferences (
     PreferenceID INTEGER PRIMARY KEY AUTOINCREMENT,
     EmployeeID INTEGER NOT NULL,
-    ShiftPatternID INTEGER,
-    PreferenceLevel INTEGER NOT NULL,  -- Example: 1 = High, 2 = Medium, 3 = Low
+    AvailabilityID INTEGER,
+    PreferenceLevel INTEGER NOT NULL,  -- Example: 1 = Least Preference, 2 = Medium, 3 = High Preference
     FOREIGN KEY (EmployeeID) REFERENCES Employees (EmployeeID),
-    FOREIGN KEY (ShiftPatternID) REFERENCES ShiftPatterns (PatternID)
+    FOREIGN KEY (AvailabilityID) REFERENCES EmployeeAvailability (AvailabilityID)
 );
 ''')
 
