@@ -2,13 +2,29 @@ import sqlite3
 from sqlite3 import Error
 import uvicorn
 import re
+import yaml
 from pydantic import BaseModel
 from datetime import datetime, time
 from typing import Optional, List
 from fastapi import FastAPI, HTTPException
+import logging
+from starlette.requests import Request
+
+# --- Configs ---
+# Read log config
+with open('log_conf.yml', 'r') as f:
+    log_config = yaml.safe_load(f.read())
+    logging.config.dictConfig(log_config)
+
+# Set up logger
+logger = logging.getLogger('basicLogger')
+
+# Read app config
+with open('app_conf.yml', 'r') as f:
+    app_config = yaml.safe_load(f.read())
 
 
-# Pydantic Models
+# --- Pydantic Models ---
 class Role(BaseModel):
     id: Optional[int] = None
     name: str
@@ -21,11 +37,11 @@ class Role(BaseModel):
 
 class Shift(BaseModel):
     id: Optional[int] = None
-    role_id: int  # Assuming role_id is required for a shift
+    role_id: int 
     description: Optional[str] = None
     start_time: datetime
     end_time: datetime
-    employee_id: Optional[int] = None  # This can be nullable if a shift might not be assigned
+    employee_id: Optional[int] = None 
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -60,26 +76,41 @@ class EmployeePreferences(BaseModel):
     preference_level: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
+# --- App Setup ---
 # SQLite Connection
 def create_connection():
     conn = None
     try:
         conn = sqlite3.connect('scheduling.db')
+        logger.info("Database connection established.")
     except Error as e:
-        print(e)
-
+        logger.error(f"Database connection failed: {e}")
     return conn
 
 app = FastAPI()
 
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.info(f"Request path: {request.url.path} - Client IP: {request.client.host}")
+    response = await call_next(request)
+    return response
+
+@app.middleware("http")
+async def log_responses(request: Request, call_next):
+    response = await call_next(request)
+    logger.info(f"Response status code: {response.status_code} for path: {request.url.path}")
+    return response
+
+# --- API Routes ---
 # Add a role
 @app.post("/roles/add", response_model=Role)
 def create_role(role: Role):
 
     # Check that role name is not empty
     if not role.name.strip():
+        logger.exception("Role name must not be empty.")
         raise HTTPException(status_code=400, detail="Role name must not be empty.")
 
     conn = create_connection()
@@ -93,7 +124,8 @@ def create_role(role: Role):
         cursor.execute("SELECT * FROM Roles WHERE RoleName = ?", (role.name,))
         existing_role = cursor.fetchone()
         if existing_role:
-            raise HTTPException(status_code=400, detail="Role name already exists.")
+            logger.exception(f"Role name {existing_role} already exists.")
+            raise HTTPException(status_code=400, detail=f"Role name {existing_role} already exists.")
 
         # Add the role
         cursor.execute(
@@ -104,12 +136,11 @@ def create_role(role: Role):
         role.id = cursor.lastrowid
     except Error as e:
         conn.rollback()
+        logger.exception(f"An error occurred: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         conn.close()
     return role
-
-
 
 # Get all roles
 @app.get("/roles/get", response_model=List[Role])
@@ -124,6 +155,7 @@ def read_roles():
         created_at=row[3], updated_at=row[4]
     ) for row in roles_data]
 
+
 # Add a shift
 @app.post("/shifts/add", response_model=Shift)
 def create_shift(shift: Shift):
@@ -137,16 +169,19 @@ def create_shift(shift: Shift):
         # Check if role exists
         cursor.execute("SELECT * FROM Roles WHERE RoleID = ?", (shift.role_id,))
         if cursor.fetchone() is None:
-            raise HTTPException(status_code=400, detail="The specified role does not exist.")
+            logger.exception(f"Role with ID {shift.role_id} does not exist.")
+            raise HTTPException(status_code=400, detail=f"Role with ID {shift.role_id} does not exist.")
 
         # If provided, check if employee exists
         if shift.employee_id is not None:
             cursor.execute("SELECT * FROM Employees WHERE EmployeeID = ?", (shift.employee_id,))
             if cursor.fetchone() is None:
-                raise HTTPException(status_code=400, detail="The specified employee does not exist.")
+                logger.exception(f"Employee with ID {shift.employee_id} does not exist.")
+                raise HTTPException(status_code=400, detail=f"Employee with ID {shift.employee_id} does not exist.")
         
         # Validate start time < end time
         if shift.start_time >= shift.end_time:
+            logger.exception(f"Start time must be before end time.")
             raise HTTPException(status_code=400, detail="Start time must be before end time.")
 
         # Add the shift
@@ -158,12 +193,11 @@ def create_shift(shift: Shift):
         shift.id = cursor.lastrowid
     except Error as e:
         conn.rollback()
+        logger.exception(f"An error occurred: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         conn.close()
     return shift
-
-
 
 # Get all shifts
 @app.get("/shifts/get", response_model=List[Shift])
@@ -178,6 +212,7 @@ def read_shifts():
         start_time=row[3], end_time=row[4], employee_id=row[5],
         created_at=row[6], updated_at=row[7]
     ) for row in shifts_data]
+
 
 # Add an employee
 @app.post("/employees/add", response_model=Employee)
@@ -200,13 +235,15 @@ def create_employee(employee: Employee):
         # Check if the email exists
         cursor.execute("SELECT * FROM Employees WHERE Email = ?", (employee.email,))
         if cursor.fetchone():
-            raise HTTPException(status_code=400, detail="An employee with this email already exists.")
+            logger.exception(f"An employee with email {employee.email} already exists.")
+            raise HTTPException(status_code=400, detail=f"An employee with email {employee.email} already exists.")
         
         # If role id is provided, check if it exists
         if employee.role_id is not None:
             cursor.execute("SELECT * FROM Roles WHERE RoleID = ?", (employee.role_id,))
             if cursor.fetchone() is None:
-                raise HTTPException(status_code=400, detail="Role does not exist.")
+                logger.exception(f"Role with ID {employee.role_id} does not exist.")
+                raise HTTPException(status_code=400, detail=f"Role with ID {employee.role_id} does not exist.")
 
         # Add the employee
         cursor.execute(
@@ -217,11 +254,11 @@ def create_employee(employee: Employee):
         employee.id = cursor.lastrowid
     except Error as e:
         conn.rollback()
+        logger.exception(f"An error occurred: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         conn.close()
     return employee
-
 
 # Get all employees
 @app.get("/employees/get", response_model=List[Employee])
@@ -235,6 +272,7 @@ def read_employees():
         id=row[0], name=row[1], email=row[2], 
         role_id=row[3], created_at=row[4], updated_at=row[5]
     ) for row in employees_data]
+
 
 @app.post("/availability/add", response_model=EmployeeAvailability)
 def create_employee_availability(employee_availability: EmployeeAvailability):
@@ -254,7 +292,8 @@ def create_employee_availability(employee_availability: EmployeeAvailability):
         )
         employee = cursor.fetchone()
         if not employee:
-            raise HTTPException(status_code=400, detail="Employee does not exist.")
+            logger.exception(f"Employee with ID {employee_availability.employee_id} does not exist.")
+            raise HTTPException(status_code=400, detail=f"Employee with ID {employee_availability.employee_id} does not exist.")
         
         # Check if the availability already exists
         cursor.execute(
@@ -263,6 +302,7 @@ def create_employee_availability(employee_availability: EmployeeAvailability):
         )
         existing_availability = cursor.fetchone()
         if existing_availability:
+            logger.exception(f"An availability for the given employee and time slot already exists.")
             raise HTTPException(status_code=400, detail="An availability for the given employee and time slot already exists.")
 
         # Add the availability
@@ -274,12 +314,12 @@ def create_employee_availability(employee_availability: EmployeeAvailability):
         employee_availability.id = cursor.lastrowid
     except Error as e:
         conn.rollback()
+        logger.exception(f"An error occurred: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         conn.close()
     
     return employee_availability
-
 
 # Get all employee availabilities
 @app.get("/availability/get", response_model=List[EmployeeAvailability])
@@ -320,7 +360,8 @@ def create_employee_preference(employee_preference: EmployeePreferences):
         )
         employee = cursor.fetchone()
         if not employee:
-            raise HTTPException(status_code=400, detail="Employee does not exist.")
+            logger.exception(f"Employee with ID {employee_preference.employee_id} does not exist.")
+            raise HTTPException(status_code=400, detail=f"Employee with ID {employee_preference.employee_id} does not exist.")
         
         # Check if the availability exists
         cursor.execute(
@@ -329,6 +370,7 @@ def create_employee_preference(employee_preference: EmployeePreferences):
         )
         availability = cursor.fetchone()
         if not availability:
+            logger.exception()
             raise HTTPException(status_code=400, detail="Availability does not exist.")
 
         # Check if a preference for the given availability slot exists        
@@ -338,6 +380,7 @@ def create_employee_preference(employee_preference: EmployeePreferences):
         )
         existing_preference = cursor.fetchone()
         if existing_preference:
+            logger.exception(f"A preference for the given employee and availability already exists.")
             raise HTTPException(status_code=400, detail="A preference for the given employee and availability already exists.")
         
         # Add the preference
@@ -349,6 +392,7 @@ def create_employee_preference(employee_preference: EmployeePreferences):
         employee_preference.id = cursor.lastrowid
     except Error as e:
         conn.rollback()
+        logger.exception(f"An error occurred: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         conn.close()
