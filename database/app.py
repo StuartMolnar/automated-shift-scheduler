@@ -26,54 +26,54 @@ with open('app_conf.yml', 'r') as f:
 
 # --- Pydantic Models ---
 class Role(BaseModel):
-    id: Optional[int] = None
-    name: str
-    description: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    ID: Optional[int] = None
+    RoleName: str
+    Description: Optional[str] = None
+    Created_At: Optional[datetime] = None
+    Updated_At: Optional[datetime] = None
 
     class Config:
         from_attributes = True
 
 class Shift(BaseModel):
-    id: Optional[int] = None
-    role_id: int 
-    description: Optional[str] = None
-    start_time: datetime
-    end_time: datetime
-    employee_id: Optional[int] = None 
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    ID: Optional[int] = None
+    RoleID: int 
+    Description: Optional[str] = None
+    StartTime: datetime
+    EndTime: datetime
+    EmployeeID: Optional[int] = None 
+    CreatedAt: Optional[datetime] = None
+    UpdatedAt: Optional[datetime] = None
 
     class Config:
         from_attributes = True
 
 class Employee(BaseModel):
-    id: Optional[int] = None
-    name: str
-    email: str
-    role_id: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    ID: Optional[int] = None
+    Name: str
+    Email: str
+    RoleID: Optional[int] = None
+    CreatedAt: Optional[datetime] = None
+    UpdatedAt: Optional[datetime] = None
 
     class Config:
         from_attributes = True
 
 class EmployeeAvailability(BaseModel):
-    id: Optional[int] = None
-    employee_id: int
-    day_of_week: int
-    start_time: time
-    end_time: time
+    ID: Optional[int] = None
+    EmployeeID: int
+    DayOfWeek: int
+    StartTime: time
+    EndTime: time
 
     class Config:
         from_attributes = True
 
 class EmployeePreferences(BaseModel):
-    id: Optional[int] = None
-    employee_id: int
-    availability_id: Optional[int] = None 
-    preference_level: int
+    ID: Optional[int] = None
+    EmployeeID: int
+    AvailabilityID: Optional[int] = None 
+    PreferenceLevel: int
 
     class Config:
         from_attributes = True
