@@ -151,8 +151,8 @@ def read_roles():
     roles_data = cursor.fetchall()
     conn.close()
     return [Role(
-        id=row[0], name=row[1], description=row[2], 
-        created_at=row[3], updated_at=row[4]
+        D=row[0], RoleName=row[1], Description=row[2], 
+        Created_At=row[3], Updated_At=row[4]
     ) for row in roles_data]
 
 
@@ -208,9 +208,11 @@ def read_shifts():
     shifts_data = cursor.fetchall()
     conn.close()
     return [Shift(
-        id=row[0], role_id=row[1], description=row[2], 
-        start_time=row[3], end_time=row[4], employee_id=row[5],
-        created_at=row[6], updated_at=row[7]
+        ID=row[0], RoleID=row[1], Description=row[2], 
+        StartTime=datetime.fromisoformat(row[3]), 
+        EndTime=datetime.fromisoformat(row[4]), 
+        EmployeeID=row[5], CreatedAt=datetime.fromisoformat(row[6]), 
+        UpdatedAt=datetime.fromisoformat(row[7])
     ) for row in shifts_data]
 
 
@@ -269,8 +271,9 @@ def read_employees():
     employees_data = cursor.fetchall()
     conn.close()
     return [Employee(
-        id=row[0], name=row[1], email=row[2], 
-        role_id=row[3], created_at=row[4], updated_at=row[5]
+        ID=row[0], Name=row[1], Email=row[2], 
+        RoleID=row[3], CreatedAt=datetime.fromisoformat(row[4]), 
+        UpdatedAt=datetime.fromisoformat(row[5])
     ) for row in employees_data]
 
 
@@ -330,8 +333,9 @@ def read_employee_availabilities():
     employee_availabilities_data = cursor.fetchall()
     conn.close()
     return [EmployeeAvailability(
-        id=row[0], employee_id=row[1], day_of_week=row[2], 
-        start_time=row[3], end_time=row[4]
+        ID=row[0], EmployeeID=row[1], DayOfWeek=row[2], 
+        StartTime=time.fromisoformat(row[3]), 
+        EndTime=time.fromisoformat(row[4])
     ) for row in employee_availabilities_data]
 
 # Get all employee availabilities for a specific employee
@@ -407,8 +411,8 @@ def read_employee_preferences():
     employee_preferences_data = cursor.fetchall()
     conn.close()
     return [EmployeePreferences(
-        id=row[0], employee_id=row[1], availability_id=row[2], 
-        preference_level=row[3]
+        ID=row[0], EmployeeID=row[1], AvailabilityID=row[2], 
+        PreferenceLevel=row[3]
     ) for row in employee_preferences_data]
 
 # Get all employee preferences for a specific employee
