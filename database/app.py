@@ -109,7 +109,7 @@ async def log_responses(request: Request, call_next):
 def create_role(role: Role):
 
     # Check that role name is not empty
-    if not role.name.strip():
+    if not role.RoleName.strip():
         logger.exception("Role name must not be empty.")
         raise HTTPException(status_code=400, detail="Role name must not be empty.")
 
@@ -121,7 +121,7 @@ def create_role(role: Role):
         cursor = conn.cursor()
 
         # Check if role exists
-        cursor.execute("SELECT * FROM Roles WHERE RoleName = ?", (role.name,))
+        cursor.execute("SELECT * FROM Roles WHERE RoleName = ?", (role.RoleName,))
         existing_role = cursor.fetchone()
         if existing_role:
             logger.exception(f"Role name {existing_role} already exists.")
@@ -130,10 +130,10 @@ def create_role(role: Role):
         # Add the role
         cursor.execute(
             "INSERT INTO Roles (RoleName, Description) VALUES (?, ?)",
-            (role.name, role.description),
+            (role.RoleName, role.Description),
         )
         conn.commit()
-        role.id = cursor.lastrowid
+        role.ID = cursor.lastrowid
     except Error as e:
         conn.rollback()
         logger.exception(f"An error occurred: {e}")
@@ -167,30 +167,30 @@ def create_shift(shift: Shift):
         cursor = conn.cursor()
         
         # Check if role exists
-        cursor.execute("SELECT * FROM Roles WHERE RoleID = ?", (shift.role_id,))
+        cursor.execute("SELECT * FROM Roles WHERE RoleID = ?", (shift.RoleID,))
         if cursor.fetchone() is None:
-            logger.exception(f"Role with ID {shift.role_id} does not exist.")
-            raise HTTPException(status_code=400, detail=f"Role with ID {shift.role_id} does not exist.")
+            logger.exception(f"Role with ID {shift.RoleID} does not exist.")
+            raise HTTPException(status_code=400, detail=f"Role with ID {shift.RoleID} does not exist.")
 
         # If provided, check if employee exists
-        if shift.employee_id is not None:
-            cursor.execute("SELECT * FROM Employees WHERE EmployeeID = ?", (shift.employee_id,))
+        if shift.EmployeeID is not None:
+            cursor.execute("SELECT * FROM Employees WHERE EmployeeID = ?", (shift.EmployeeID,))
             if cursor.fetchone() is None:
-                logger.exception(f"Employee with ID {shift.employee_id} does not exist.")
-                raise HTTPException(status_code=400, detail=f"Employee with ID {shift.employee_id} does not exist.")
+                logger.exception(f"Employee with ID {shift.EmployeeID} does not exist.")
+                raise HTTPException(status_code=400, detail=f"Employee with ID {shift.EmployeeID} does not exist.")
         
         # Validate start time < end time
-        if shift.start_time >= shift.end_time:
+        if shift.StartTime >= shift.EndTime:
             logger.exception(f"Start time must be before end time.")
             raise HTTPException(status_code=400, detail="Start time must be before end time.")
 
         # Add the shift
         cursor.execute(
             "INSERT INTO Shifts (RoleID, Description, StartTime, EndTime, EmployeeID) VALUES (?, ?, ?, ?, ?)",
-            (shift.role_id, shift.description, shift.start_time, shift.end_time, shift.employee_id),
+            (shift.RoleID, shift.Description, shift.StartTime, shift.EndTime, shift.EmployeeID),
         )
         conn.commit()
-        shift.id = cursor.lastrowid
+        shift.ID = cursor.lastrowid
     except Error as e:
         conn.rollback()
         logger.exception(f"An error occurred: {e}")
@@ -218,11 +218,11 @@ def read_shifts():
 @app.post("/employees/add", response_model=Employee)
 def create_employee(employee: Employee):
     # Check that name is not empty
-    if not employee.name:
+    if not employee.Name:
         raise HTTPException(status_code=400, detail="The name must not be empty.")
     
     # Check that email is correct format
-    if not re.match(r"[^@]+@[^@]+\.[^@]+", employee.email):
+    if not re.match(r"[^@]+@[^@]+\.[^@]+", employee.Email):
         raise HTTPException(status_code=400, detail="Invalid email format.")
 
     conn = create_connection()
@@ -233,25 +233,25 @@ def create_employee(employee: Employee):
         cursor = conn.cursor()
         
         # Check if the email exists
-        cursor.execute("SELECT * FROM Employees WHERE Email = ?", (employee.email,))
+        cursor.execute("SELECT * FROM Employees WHERE Email = ?", (employee.Email,))
         if cursor.fetchone():
-            logger.exception(f"An employee with email {employee.email} already exists.")
-            raise HTTPException(status_code=400, detail=f"An employee with email {employee.email} already exists.")
+            logger.exception(f"An employee with email {employee.Email} already exists.")
+            raise HTTPException(status_code=400, detail=f"An employee with email {employee.Email} already exists.")
         
         # If role id is provided, check if it exists
-        if employee.role_id is not None:
-            cursor.execute("SELECT * FROM Roles WHERE RoleID = ?", (employee.role_id,))
+        if employee.RoleID is not None:
+            cursor.execute("SELECT * FROM Roles WHERE RoleID = ?", (employee.RoleID,))
             if cursor.fetchone() is None:
-                logger.exception(f"Role with ID {employee.role_id} does not exist.")
-                raise HTTPException(status_code=400, detail=f"Role with ID {employee.role_id} does not exist.")
+                logger.exception(f"Role with ID {employee.RoleID} does not exist.")
+                raise HTTPException(status_code=400, detail=f"Role with ID {employee.RoleID} does not exist.")
 
         # Add the employee
         cursor.execute(
             "INSERT INTO Employees (Name, Email, RoleID) VALUES (?, ?, ?)",
-            (employee.name, employee.email, employee.role_id),
+            (employee.Name, employee.Email, employee.RoleID),
         )
         conn.commit()
-        employee.id = cursor.lastrowid
+        employee.ID = cursor.lastrowid
     except Error as e:
         conn.rollback()
         logger.exception(f"An error occurred: {e}")
@@ -281,24 +281,24 @@ def create_employee_availability(employee_availability: EmployeeAvailability):
         raise HTTPException(status_code=500, detail="Could not connect to the database.")
     
     cursor = conn.cursor()
-    start_time_str = employee_availability.start_time.strftime("%H:%M:%S")
-    end_time_str = employee_availability.end_time.strftime("%H:%M:%S")
+    start_time_str = employee_availability.StartTime.strftime("%H:%M:%S")
+    end_time_str = employee_availability.EndTime.strftime("%H:%M:%S")
     
     try:
         # Check if the employee exists
         cursor.execute(
             "SELECT * FROM Employees WHERE EmployeeID = ?",
-            (employee_availability.employee_id,),
+            (employee_availability.EmployeeID,),
         )
         employee = cursor.fetchone()
         if not employee:
-            logger.exception(f"Employee with ID {employee_availability.employee_id} does not exist.")
-            raise HTTPException(status_code=400, detail=f"Employee with ID {employee_availability.employee_id} does not exist.")
+            logger.exception(f"Employee with ID {employee_availability.EmployeeID} does not exist.")
+            raise HTTPException(status_code=400, detail=f"Employee with ID {employee_availability.EmployeeID} does not exist.")
         
         # Check if the availability already exists
         cursor.execute(
             "SELECT * FROM EmployeeAvailability WHERE EmployeeID = ? AND DayOfWeek = ? AND StartTime = ? AND EndTime = ?",
-            (employee_availability.employee_id, employee_availability.day_of_week, start_time_str, end_time_str),
+            (employee_availability.EmployeeID, employee_availability.DayOfWeek, start_time_str, end_time_str),
         )
         existing_availability = cursor.fetchone()
         if existing_availability:
@@ -308,10 +308,10 @@ def create_employee_availability(employee_availability: EmployeeAvailability):
         # Add the availability
         cursor.execute(
             "INSERT INTO EmployeeAvailability (EmployeeID, DayOfWeek, StartTime, EndTime) VALUES (?, ?, ?, ?)",
-            (employee_availability.employee_id, employee_availability.day_of_week, start_time_str, end_time_str),
+            (employee_availability.EmployeeID, employee_availability.DayOfWeek, start_time_str, end_time_str),
         )
         conn.commit()
-        employee_availability.id = cursor.lastrowid
+        employee_availability.ID = cursor.lastrowid
     except Error as e:
         conn.rollback()
         logger.exception(f"An error occurred: {e}")
@@ -356,17 +356,17 @@ def create_employee_preference(employee_preference: EmployeePreferences):
         # Check if the employee exists
         cursor.execute(
             "SELECT * FROM Employees WHERE EmployeeID = ?",
-            (employee_preference.employee_id,),
+            (employee_preference.EmployeeID,),
         )
         employee = cursor.fetchone()
         if not employee:
-            logger.exception(f"Employee with ID {employee_preference.employee_id} does not exist.")
-            raise HTTPException(status_code=400, detail=f"Employee with ID {employee_preference.employee_id} does not exist.")
+            logger.exception(f"Employee with ID {employee_preference.EmployeeID} does not exist.")
+            raise HTTPException(status_code=400, detail=f"Employee with ID {employee_preference.EmployeeID} does not exist.")
         
         # Check if the availability exists
         cursor.execute(
             "SELECT * FROM EmployeeAvailability WHERE AvailabilityID = ?",
-            (employee_preference.availability_id,),
+            (employee_preference.AvailabilityID,),
         )
         availability = cursor.fetchone()
         if not availability:
@@ -376,7 +376,7 @@ def create_employee_preference(employee_preference: EmployeePreferences):
         # Check if a preference for the given availability slot exists        
         cursor.execute(
             "SELECT * FROM EmployeePreferences WHERE EmployeeID = ? AND AvailabilityID = ?",
-            (employee_preference.employee_id, employee_preference.availability_id),
+            (employee_preference.EmployeeID, employee_preference.AvailabilityID),
         )
         existing_preference = cursor.fetchone()
         if existing_preference:
@@ -386,10 +386,10 @@ def create_employee_preference(employee_preference: EmployeePreferences):
         # Add the preference
         cursor.execute(
             "INSERT INTO EmployeePreferences (EmployeeID, AvailabilityID, PreferenceLevel) VALUES (?, ?, ?)",
-            (employee_preference.employee_id, employee_preference.availability_id, employee_preference.preference_level),
+            (employee_preference.EmployeeID, employee_preference.AvailabilityID, employee_preference.PreferenceLevel),
         )
         conn.commit()
-        employee_preference.id = cursor.lastrowid
+        employee_preference.ID = cursor.lastrowid
     except Error as e:
         conn.rollback()
         logger.exception(f"An error occurred: {e}")
