@@ -151,7 +151,7 @@ def read_roles():
     roles_data = cursor.fetchall()
     conn.close()
     return [Role(
-        D=row[0], RoleName=row[1], Description=row[2], 
+        ID=row[0], RoleName=row[1], Description=row[2], 
         Created_At=row[3], Updated_At=row[4]
     ) for row in roles_data]
 
